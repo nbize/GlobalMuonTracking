@@ -46,11 +46,19 @@ std::unique_ptr<TH2D> mPairingEtaPt = nullptr;
 
 std::vector<std::unique_ptr<TEfficiency>> mPurityPtInnerVec;
 std::vector<std::unique_ptr<TEfficiency>> mPurityPtOuterVec;
-std::vector<std::unique_ptr<TH2D>> mPurityPtInnerVecTH2;
-std::vector<std::unique_ptr<TH2D>> mPurityPtOuterVecTH2;
-std::vector<std::unique_ptr<TH1D>> mPairingPtInnerVecTH1;
-std::vector<std::unique_ptr<TH1D>> mPairingPtOuterVecTH1;
+//std::vector<std::unique_ptr<TH2D>> mPurityPtInnerVecTH2;
+std::vector<std::unique_ptr<TEfficiency>> mPurityPtInnerVecTEff;
+std::vector<std::unique_ptr<TEfficiency>> mPurityPtOuterVecTEff;
+//std::vector<std::unique_ptr<TH1D>> mPairingPtInnerVecTH1;
+std::vector<std::unique_ptr<TEfficiency>> mPairingPtInnerVecTEff;// test for turning those histos into tefficiency
+std::vector<std::unique_ptr<TEfficiency>> mPairingPtOuterVecTEff;
 std::vector<std::unique_ptr<TH2D>> mPairingEtaPtVec;
+
+
+
+
+
+
 
 enum TH3HistosCodes {
   kTH3GMTrackDeltaXDeltaYEta,
@@ -278,6 +286,7 @@ void TH3Slicer(TCanvas* canvas, std::unique_ptr<TH3F>& histo3D, std::vector<floa
   histo3D->GetYaxis()->SetRange(0, 0);
   histo3D->GetXaxis()->SetRange(0, 0);
   bool first = true;
+  //Int_t icolor =0;
   if (cname.find("VsEta") < cname.length()) {
     for (auto ptmin : list) {
       auto ptmax = ptmin + window;
@@ -292,6 +301,7 @@ void TH3Slicer(TCanvas* canvas, std::unique_ptr<TH3F>& histo3D, std::vector<floa
 
       aDBG->FitSlicesX(nullptr, 0, -1, 4, "QNR", &aSlices);
       auto th1DBG = (TH1F*)aSlices[iPar];
+      //th1DBG->SetMarkerColor(kRed+icolor);
       th1DBG->SetTitle(Form("%1.2f < p_t < %1.2f", ptmin, ptmax));
       th1DBG->SetStats(0);
       th1DBG->SetYTitle(ytitle.c_str());
@@ -301,8 +311,13 @@ void TH3Slicer(TCanvas* canvas, std::unique_ptr<TH3F>& histo3D, std::vector<floa
         option = "SAME PLC PMC";
       }
       first = false;
-      th1DBG->DrawClone(option.c_str());
+
+      //fix DrawClone issue with PMC
+      auto th1DBG_clone = (TH1D*) th1DBG->Clone();
+      th1DBG_clone->Draw(option.c_str());
+      //th1DBG->DrawClone(option.c_str());
     }
+    /////////////////////////////////////////////////
   } else if (cname.find("VsPt") < cname.length()) {
     for (auto etamin : list) {
       auto etamax = etamin + window;
@@ -313,16 +328,23 @@ void TH3Slicer(TCanvas* canvas, std::unique_ptr<TH3F>& histo3D, std::vector<floa
       aDBG->FitSlicesX(nullptr, 0, -1, 4, "QNR", &aSlices);
       auto th1DBG = (TH1F*)aSlices[iPar];
       th1DBG->SetTitle(Form("%1.2f < \\eta < %1.2f", etamin, etamax));
+      th1DBG->SetOption("COLZ");
       th1DBG->SetStats(0);
       th1DBG->SetYTitle(ytitle.c_str());
       if (first) {
-        option = "PLC PMC";
+        option = " PLC PMC";
       } else {
         option = "SAME PLC PMC";
       }
       first = false;
-      th1DBG->DrawClone(option.c_str());
+
+      //fix DrawClone issue with PMC
+      auto th1DBG_clone = (TH1D*) th1DBG->Clone();
+      th1DBG_clone->Draw(option.c_str());
+      //th1DBG->DrawClone(option.c_str());
     }
+    /////////////////////////////////////////////////
+    
   } else {
     exit(1);
   }
@@ -413,7 +435,7 @@ void loadGlobalHistos()
 }
 
 //-------------------------------------------------------------------------------------------
-void finalize()
+void finalizeRecoAndPairables()
 {
 
   gStyle->SetOptTitle(kFALSE);
@@ -422,7 +444,7 @@ void finalize()
   gStyle->SetMarkerSize(1.5);
 
   std::vector<float> ptList({.5, 5., 10., 18.0});
-  float ptWindow = 1.0;
+  float ptWindow = 1.;
   std::vector<float> etaList({2.5, 3.0});
   float etaWindow = 0.5;
 
@@ -474,7 +496,7 @@ void finalize()
 }
 
 //-------------------------------------------------------------------------------------------
-void finalize2()
+void finalizePurityAndEff()
 {
 
   gStyle->SetOptTitle(kFALSE);
@@ -521,21 +543,15 @@ void finalize2()
     mPurityPtInnerVec.emplace_back(std::make_unique<TEfficiency>(*TruePtProjInner, *RecoPtProjInner));
     mPurityPtInnerVec.back()->SetNameTitle(Form("GMTrackPurityInnerEtaCut_%.2f", scoreCut), Form("GMTrackPurity (3.0 < #eta < 3.6 ) cut %.2f", scoreCut));
 
-    auto& hPInner = mPurityPtInnerVecTH2.emplace_back((std::unique_ptr<TH2D>)static_cast<TH2D*>(TruePtProjInner->Clone()));
-    hPInner->Divide(RecoPtProjInner);
+    //auto& hPInner = mPurityPtInnerVecTH2.emplace_back((std::unique_ptr<TH2D>)static_cast<TH2D*>(TruePtProjInner->Clone()));
+    auto& hPInner = mPurityPtInnerVecTEff.emplace_back(std::make_unique<TEfficiency>(*TruePtProjInner, *RecoPtProjInner));
     hPInner->SetNameTitle(Form("TH2GMTrackPurityInnerEtaCut_%.2f", scoreCut), Form("%.2f cut", scoreCut));
-    hPInner->SetOption("COLZ");
     hPInner->SetMarkerStyle(kFullCircle);
-    hPInner->SetMinimum(0.0);
-    hPInner->SetMaximum(1.2);
 
-    auto& hInner = mPairingPtInnerVecTH1.emplace_back((std::unique_ptr<TH1D>)static_cast<TH1D*>(RecoPtProjInner->Clone()));
-    hInner->Divide(PairablePtProjInner);
+    auto& hInner = mPairingPtInnerVecTEff.emplace_back(std::make_unique<TEfficiency>(*TruePtProjInner, *RecoPtProjInner));
     hInner->SetNameTitle(Form("GMTrackPairingEffInnerPtCut_%.2f", scoreCut), Form("%.2f cut", scoreCut));
-    hInner->SetOption("COLZ");
     hInner->SetMarkerStyle(kFullCircle);
-    hInner->SetMinimum(0.0);
-    hInner->SetMaximum(1.8);
+
     // Outer pseudorapidity
     auto RecoPtProjOuter = (TH1*)Reco->ProjectionX(Form("_OuterRecoCut_%.2f", scoreCut), minBin, midBin, 0, maxScoreBin);
     auto TruePtProjOuter = (TH1*)hTrue->ProjectionX(Form("_OuterTrueCut_%.2f", scoreCut), minBin, midBin, 0, maxScoreBin);
@@ -545,21 +561,14 @@ void finalize2()
     //new TCanvas();
     //mPurityPtOuterVec.back()->Draw();
 
-    auto& hPOuter = mPurityPtOuterVecTH2.emplace_back((std::unique_ptr<TH2D>)static_cast<TH2D*>(TruePtProjOuter->Clone()));
-    hPOuter->Divide(RecoPtProjOuter);
+    //auto& hPOuter = mPurityPtOuterVecTH2.emplace_back((std::unique_ptr<TH2D>)static_cast<TH2D*>(TruePtProjOuter->Clone()));
+    auto& hPOuter = mPurityPtOuterVecTEff.emplace_back(std::make_unique<TEfficiency>(*TruePtProjOuter, *RecoPtProjOuter));
     hPOuter->SetNameTitle(Form("TH2GMTrackPurityOuterEtaCut_%.2f", scoreCut), Form("%.2f cut", scoreCut));
-    hPOuter->SetOption("COLZ");
     hPOuter->SetMarkerStyle(kFullCircle);
-    hPOuter->SetMinimum(0.0);
-    hPOuter->SetMaximum(1.2);
 
-    auto& hOuter = mPairingPtOuterVecTH1.emplace_back((std::unique_ptr<TH1D>)static_cast<TH1D*>(RecoPtProjOuter->Clone()));
-    hOuter->Divide(PairablePtProjInner);
+    auto& hOuter = mPairingPtOuterVecTEff.emplace_back(std::make_unique<TEfficiency>(*TruePtProjOuter, *RecoPtProjOuter));
     hOuter->SetNameTitle(Form("GMTrackPairingEffOuterPtCut_%.2f", scoreCut), Form("%.2f cut", scoreCut));
-    hOuter->SetOption("COLZ");
     hOuter->SetMarkerStyle(kFullCircle);
-    hOuter->SetMinimum(0.0);
-    hOuter->SetMaximum(1.8);
 
     mPairingEtaPtVec.emplace_back((std::unique_ptr<TH2D>)static_cast<TH2D*>(RecoEtaPt->Clone()));
     mPairingEtaPtVec.back()->Divide(PairableEtaPt);
@@ -567,19 +576,33 @@ void finalize2()
     mPairingEtaPtVec.back()->SetOption("COLZ");
   }
 
+
+
+////////////////////////
   auto canvas = new TCanvas("PurityPtOuter","PurityPtOuter",1024,800);
   auto first = true;
   std::string option;
+  Color_t color[14] = {kBlue+2,kBlue+1, kBlue-4, kBlue-6, kCyan-5, kCyan-3, kGreen-8, kGreen-6, kGreen+1, kGreen+2, kYellow+1, kOrange-2, kOrange-3, kRed-3 };
+  int icolor=0;
 
-  for (auto& th2 : mPurityPtOuterVecTH2) {
-    if (first) {
-      option = "hist P PMC";
-    } else {
-      option = "hist SAME P PMC";
+  for (auto& teff : mPurityPtOuterVecTEff) {
+    if (first)
+    {
+      option = "AP";
+      teff->SetLineColor(color[icolor]);
+      teff->SetMarkerColor(color[icolor]);
+    }
+    else
+    {
+      option = "P SAME";
+      teff->SetLineColor(color[icolor]);
+      teff->SetMarkerColor(color[icolor]);
     }
     first = false;
-    th2->Draw(option.c_str());
+    teff->DrawClone(option.c_str());
+    icolor++;
   }
+
   TPaveText* t = new TPaveText(0.2223748, 0.9069355, 0.7776252, 0.965, "brNDC"); // left-up
   t->SetBorderSize(0);
   t->SetFillColor(gStyle->GetTitleFillColor());
@@ -592,15 +615,24 @@ void finalize2()
 
   canvas = new TCanvas("PurityPtInner","PurityPtInner",1024,800);
   first = true;
+  icolor=0;
 
-  for (auto& th2 : mPurityPtInnerVecTH2) {
-    if (first) {
-      option = "hist P PMC";
-    } else {
-      option = "hist SAME P PMC";
+  for (auto& teff : mPurityPtInnerVecTEff) {
+    if (first)
+    {
+      option = "AP";
+      teff->SetLineColor(color[icolor]);
+      teff->SetMarkerColor(color[icolor]);
+    }
+    else
+    {
+      option = "P SAME";
+      teff->SetLineColor(color[icolor]);
+      teff->SetMarkerColor(color[icolor]);
     }
     first = false;
-    th2->Draw(option.c_str());
+    teff->DrawClone(option.c_str());
+    icolor++;
   }
   t = new TPaveText(0.2223748, 0.9069355, 0.7776252, 0.965, "brNDC");
   t->SetBorderSize(0);
@@ -614,15 +646,24 @@ void finalize2()
 
   canvas = new TCanvas("PairingEffPtOuter","PairingEffPtOuter",1024,800);
   first = true;
+  icolor=0;
 
-  for (auto& th2 : mPairingPtOuterVecTH1) {
-    if (first) {
-      option = "hist P PMC";
-    } else {
-      option = "hist SAME P PMC";
+  for (auto &teff : mPairingPtOuterVecTEff) {
+    if (first)
+    {
+      option = "AP";
+      teff->SetLineColor(color[icolor]);
+      teff->SetMarkerColor(color[icolor]);
+    }
+    else
+    {
+      option = "P SAME";
+      teff->SetLineColor(color[icolor]);
+      teff->SetMarkerColor(color[icolor]);
     }
     first = false;
-    th2->Draw(option.c_str());
+    teff->DrawClone(option.c_str());
+    icolor++;
   }
   t = new TPaveText(0.2223748, 0.9069355, 0.7776252, 0.965, "brNDC");
   t->SetBorderSize(0);
@@ -636,16 +677,27 @@ void finalize2()
 
   canvas = new TCanvas("PairingEffPtInner","PairingEffPtInner",1024,800);
   first = true;
+  icolor=0;
 
-  for (auto& th2 : mPairingPtInnerVecTH1) {
-    if (first) {
-      option = "hist P PMC";
-    } else {
-      option = "hist SAME P PMC";
+  for (auto &teff : mPairingPtInnerVecTEff)
+  {
+    if (first)
+    {
+      option = "AP";
+      teff->SetLineColor(color[icolor]);
+      teff->SetMarkerColor(color[icolor]);
+    }
+    else
+    {
+      option = "P SAME";
+      teff->SetLineColor(color[icolor]);
+      teff->SetMarkerColor(color[icolor]);
     }
     first = false;
-    th2->Draw(option.c_str());
+    teff->DrawClone(option.c_str());
+    icolor++;
   }
+
   t = new TPaveText(0.2223748, 0.9069355, 0.7776252, 0.965, "brNDC");
   t->SetBorderSize(0);
   t->SetFillColor(gStyle->GetTitleFillColor());
@@ -658,8 +710,9 @@ void finalize2()
 }
 
 //-------------------------------------------------------------------------------------------
-void FwdAssessmentFinalization.C()
+void FwdAssessmentFinalization_dev()
 {
   loadGlobalHistos();
-  finalize2();
+  finalizePurityAndEff();
+  //finalizeRecoAndPairables();
 }
